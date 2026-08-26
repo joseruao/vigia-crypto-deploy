@@ -6,6 +6,17 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  async redirects() {
+    return [
+      {
+        // obrigatório: sem trailing slash os links relativos do consulta
+        // (style.css, app.js) resolvem contra a raiz do domínio -> 404 sem CSS
+        source: "/consulta",
+        destination: "/consulta/",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       {
