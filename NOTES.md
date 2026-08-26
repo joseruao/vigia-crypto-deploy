@@ -2294,3 +2294,15 @@ Notas:
 ## Sessões anteriores
 
 - `labbel/sessao_2026-06-11.md` — sessão completa com tabela Supabase e mapa OTC
+
+---
+
+## 26 Ago 2026 — Deploys Railway reparados + cron de holdings pendente de config
+
+- **Builds a falhar desde 19/08** (todos os serviços): `psycopg2-binary==2.9.6` não tem wheel cp313; Railpack resolve Python 3.13.4 e o source build falha. Fix no requirements.txt (`==2.9.10`, commit 13ecf11). Backend voltou a correr código atual (esteve em 17/08).
+- **Serviço `holdings-cron` CRIADO** (repo vigia-crypto-deploy, branch main) com todas as variáveis (SUPABASE_URL/SERVICE_ROLE_KEY, HELIUS_API_KEY, ETHERSCAN_API_KEY, TELEGRAM_BOT_TOKEN_SOL/CHAT_ID_SOL). **FALTA (UI do Railway, Settings do serviço — CLI/API dão "Not Authorized" para estes campos):**
+  - Root Directory: `backend`
+  - Start Command: `python dailyworker/daily_worker_runner.py`
+  - Cron Schedule: `0 6 * * *` (diário 06:00 UTC)
+  - Redeploy depois (ou push novo dispara).
+- **NEEDS_DECISION:** Arkham (trial expirado, 402 desde 13/08) — o `arkham-exchange-scanner` corre diariamente às 08:00 UTC e não escreve nada. Renovar em arkm.com ou remover o cron.
