@@ -5,7 +5,7 @@ requests==2.32.3
 
 # --- Supabase & DB ---
 supabase==2.4.5
-psycopg2-binary==2.9.6
+psycopg2-binary==2.9.10  # cp313 wheels (2.9.6 compila do source e falha no build do Railpack)
 
 # --- API Backend ---
 fastapi==0.115.0
