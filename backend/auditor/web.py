@@ -11,13 +11,14 @@ com clique explícito e SMTP configurado).
 from __future__ import annotations
 
 import json
+import os
 import re
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -30,17 +31,34 @@ from .storage.db import AuditDB
 
 app = FastAPI(title="AI Business Auditor", version="0.1.0")
 
-# CORS para o UI local (Next dev em audit-ui: http://localhost:3000)
+# CORS: UI local (Next dev) + produção (joseruao.com e qualquer projeto *.vercel.app)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        # URL de produção quando o UI for deployado (ex.: Vercel)
-    ],
+    allow_origins=["https://joseruao.com"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://[a-z0-9-]+\.vercel\.app$",
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+_ACCESS_CODE = os.getenv("AUDITOR_ACCESS_CODE", "").strip()
+
+
+@app.middleware("http")
+async def access_gate(request: Request, call_next: Any):
+    """Gate de acesso (padrão devil): header `x-access-code` obrigatório em /auditor/*
+    quando AUDITOR_ACCESS_CODE está definido no ambiente. Sem env (dev local) = aberto."""
+    if not _ACCESS_CODE:
+        return await call_next(request)
+    if not request.url.path.startswith("/auditor"):
+        return await call_next(request)
+    code = request.headers.get("x-access-code", "")
+    if code != _ACCESS_CODE:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Código de acesso inválido ou em falta (header x-access-code)."},
+        )
+    return await call_next(request)
 
 DEFAULT_WORKSPACE = "cliente_demo"
 # Workspaces vivem em backend/audits/ (é onde o CLI corre com caminhos relativos)
