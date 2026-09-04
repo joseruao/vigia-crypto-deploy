@@ -90,6 +90,27 @@
   Transcodificado para UTF-8 + `config.py` tolerante (fallback cp1252 se UTF-8 falhar).
 - Docintel continua disponível para confidencialidade UE/máxima qualidade: `AUDITOR_OCR_ENGINE=docintel`.
 
+### UI v0 ligada à API local (4 Set) — frontend em C:\Users\joser\audit-ui (FORA do repo)
+- **Frontend v0** (Next 16 + React 19 + Three/R3F, criado pelo José no Vercel v0) colocado em
+  `C:\Users\joser\audit-ui` (pasta própria, fora do repo — sem interferir nos deploys Vercel/Railway).
+- **web.py ganhou**: CORS para `http://localhost:3000` + `GET/POST /auditor/clients`
+  (clientes = pastas em `backend/audits`; metadados em `client.json` por workspace; slug ASCII
+  gerado do nome; `hasRun` = se db/audit.db existe).
+- **Frontend ligado de verdade** (`lib/api.ts` + rewrite de experience/lab-overlay):
+  - Boot/login estéticos (v0), mas o lab usa a API real: lista/cria clientes, upload
+    (PDF→faturas, CSV→extratos), "Start audit" → `POST /auditor/run` (progresso de fases
+    cosmético durante a chamada real), findings reais mapeados (confianca→severity,
+    impacto_eur, evidencia, documentos, estado novo/confirmado ↔ OPEN/REVIEWED),
+    emails = rascunhos reais de fornecedores (`/auditor/emails/generate`), "Draft email"
+    do achado = mailto para o contacto do cliente (nunca envia).
+  - API base: `NEXT_PUBLIC_AUDITOR_API` (default `http://localhost:8765`).
+- **Testado E2E 4 Set via HTTP**: criar cliente → upload 3 faturas + extrato → run →
+  7 achados reais (impacto 9.577,20 €) com schema certo; CORS preflight OK.
+- **Correr**: terminal 1 `python -m uvicorn auditor.web:app --port 8765` (em backend/);
+  terminal 2 `npm run dev` em audit-ui/ → http://localhost:3000.
+- **Pendente**: deploy do UI (Vercel) implicaria expor o pipeline — por agora é local-first
+  (consistente com o desenho "Nível 2": dados saem do PC só para a IA Azure UE).
+
 ### Alertas + pagamentos duplicados + faturas em falta (16 Ago, 3ª sessão)
 - **Pagamentos duplicados** (regra nova): mesmo montante + mesma descrição/fornecedor + datas ≤30 dias
   → "pagamento_duplicado" (confiança alta). Pagamentos duplicados não são re-sinalizados como

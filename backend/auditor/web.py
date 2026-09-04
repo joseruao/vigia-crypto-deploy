@@ -11,10 +11,14 @@ com clique explícito e SMTP configurado).
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,6 +29,18 @@ from .config import _BACKEND_ROOT
 from .storage.db import AuditDB
 
 app = FastAPI(title="AI Business Auditor", version="0.1.0")
+
+# CORS para o UI local (Next dev em audit-ui: http://localhost:3000)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        # URL de produção quando o UI for deployado (ex.: Vercel)
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DEFAULT_WORKSPACE = "cliente_demo"
 # Workspaces vivem em backend/audits/ (é onde o CLI corre com caminhos relativos)
@@ -243,6 +259,74 @@ def _workspace_path(name: str) -> Path:
     ws = (AUDITS_ROOT / name).resolve()
     ensure_workspace(ws)
     return ws
+
+
+CLIENT_META = "client.json"
+
+
+def _slugify(name: str) -> str:
+    """Nome de cliente -> pasta de workspace (ASCII, sem acentos)."""
+    slug = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", slug).strip("-").lower()
+    return slug or f"cliente-{datetime.now(timezone.utc).timestamp():.0f}"
+
+
+def _client_record(ws_dir: Path) -> dict[str, Any]:
+    """Lê client.json (metadados do cliente) + se já correu uma auditoria."""
+    meta: dict[str, Any] = {}
+    meta_file = ws_dir / CLIENT_META
+    if meta_file.exists():
+        try:
+            meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        except Exception:  # client.json corrompido — segue com defaults
+            meta = {}
+    return {
+        "id": ws_dir.name,
+        "companyName": meta.get("companyName") or ws_dir.name,
+        "contactName": meta.get("contactName", ""),
+        "email": meta.get("email", ""),
+        "phone": meta.get("phone", ""),
+        "industry": meta.get("industry", ""),
+        "notes": meta.get("notes", ""),
+        "hasRun": (ws_dir / "db" / "audit.db").exists(),
+    }
+
+
+@app.get("/auditor/clients")
+def clients_list() -> JSONResponse:
+    """Clientes = pastas em AUDITS_ROOT com client.json ou dados (input/db)."""
+    out: list[dict[str, Any]] = []
+    if AUDITS_ROOT.exists():
+        for d in sorted(AUDITS_ROOT.iterdir()):
+            if not d.is_dir() or d.name.startswith("."):
+                continue
+            has_meta = (d / CLIENT_META).exists()
+            has_data = (d / "input").is_dir() or (d / "db" / "audit.db").exists()
+            if has_meta or has_data:
+                out.append(_client_record(d))
+    return {"clients": out}
+
+
+@app.post("/auditor/clients")
+def clients_create(payload: dict[str, Any]) -> JSONResponse:
+    """Cria um cliente: pasta de workspace + client.json com os metadados."""
+    company = str(payload.get("companyName") or "").strip()
+    if not company:
+        raise HTTPException(status_code=422, detail="companyName é obrigatório")
+    ws = _workspace_path(_slugify(company))
+    meta = {
+        "companyName": company,
+        "contactName": str(payload.get("contactName") or "").strip(),
+        "email": str(payload.get("email") or "").strip(),
+        "phone": str(payload.get("phone") or "").strip(),
+        "industry": str(payload.get("industry") or "").strip(),
+        "notes": str(payload.get("notes") or "").strip(),
+        "createdAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    (ws / CLIENT_META).write_text(
+        json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return _client_record(ws)
 
 
 def _db_for(workspace: Path) -> AuditDB:
