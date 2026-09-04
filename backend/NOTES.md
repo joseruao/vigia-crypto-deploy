@@ -70,6 +70,26 @@
   (desenha fatura com PIL e embute como imagem num PDF sem texto).
 - **Custo**: F0 cobre a demo de sobra. Se um dia houver muitos scans → S0 (~$1/1000 páginas).
 
+### OCR local via PaddleOCR (4 Set) — grátis, sem teto de páginas
+- **`extractors/ocr_paddle.py`** (novo): OCR 100% local de scans — PP-OCRv5 mobile det+rec
+  (Apache-2.0), sem custo e **sem teto de páginas** (vs F0 do Doc Intelligence = 20 págs/mês).
+  Mesma interface `ocr_pdf(path) -> str`; páginas renderizadas com **pypdfium2** (BSD-3, scale 2.0);
+  import lazy da lib (pesada); o scan nunca sai do PC.
+- **Router** `extractors/ocr_router.py` (novo): `build_ocr_client()` escolhe por
+  **`AUDITOR_OCR_ENGINE`** = `auto` (default: paddle se instalado, senão docintel, senão silencioso)
+  | `paddle` | `docintel` | `none`. O pipeline imprime `🔤 OCR: <engine>`.
+- **Empirismo 4 Set (py3.13, 4 cores, sem GPU)**: paddleocr 3.7.0 + paddlepaddle 3.3.1 OK no Windows.
+  ⚠️ **mkldnn por omissão crasha o executor PIR** (`ConvertPirAttribute2RuntimeAttribute` em
+  `onednn_instruction.cc`) com QUALQUER modelo → módulo força `PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT=0`.
+  PP-OCRv6 medium (o preset de lang) = **~55s/página**; **PP-OCRv5 mobile = ~13s/página** com leitura
+  perfeita no scan PT de teste (C2026-0331 → Papelaria Central Lda / 357,93€) — usado. Scale 1.5
+  degrada ("Reterencia") — manter 2.0. Pipeline completo testado OK (OCR→extração→relatório).
+- **Deps LOCAIS** (instaladas no Python do sistema — **NÃO** entraram em `requirements.txt` de prod):
+  `pip install paddlepaddle paddleocr pypdfium2`; modelos em cache em `~/.paddlex` (1º init ~7s).
+- **Fix .env**: o ficheiro estava em cp1252 (Notepad: "jurídica") → `load_dotenv` crasha em UTF-8.
+  Transcodificado para UTF-8 + `config.py` tolerante (fallback cp1252 se UTF-8 falhar).
+- Docintel continua disponível para confidencialidade UE/máxima qualidade: `AUDITOR_OCR_ENGINE=docintel`.
+
 ### Alertas + pagamentos duplicados + faturas em falta (16 Ago, 3ª sessão)
 - **Pagamentos duplicados** (regra nova): mesmo montante + mesma descrição/fornecedor + datas ≤30 dias
   → "pagamento_duplicado" (confiança alta). Pagamentos duplicados não são re-sinalizados como

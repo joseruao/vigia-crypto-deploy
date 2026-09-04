@@ -14,7 +14,7 @@ from .audits.rules import (
 )
 from .audits.suppliers import find_supplier_opportunities, find_margin_issues
 from .extractors.pdf_text import extract_pdf_text
-from .extractors.ocr_docintel import DocumentIntelligenceOCR, NoOCRSilent, build_ocr_client
+from .extractors.ocr_router import OCRClient, build_ocr_client
 from .ingestion.scanner import DocumentCandidate, scan_input
 from .normalizers.payments_csv import parse_payments_csv
 from .reports.html_report import write_report
@@ -60,7 +60,7 @@ def _is_csv(candidate: DocumentCandidate) -> bool:
 
 
 def _extract_invoice(
-    candidate: DocumentCandidate, client: AIClient, ocr: DocumentIntelligenceOCR | NoOCRSilent, db: AuditDB, run_id: int
+    candidate: DocumentCandidate, client: AIClient, ocr: OCRClient, db: AuditDB, run_id: int
 ) -> dict[str, Any] | None:
     text, truncated = extract_pdf_text(candidate.path, MAX_CHARS_PER_DOC)
     if not text.strip():
@@ -96,6 +96,7 @@ def run_audit(workspace: Path, *, limit: int | None = None, skip_ai: bool = Fals
                 print("⚠️  Sem AI configurada (AUDITOR_AI_PROVIDER não é azure_openai). A correr só com regras locais.")
                 client = None
         ocr = build_ocr_client(log_call=lambda info: db.log_ai_call(run_id, None, info))
+        print(f"🔤 OCR: {ocr.engine_name}")
 
         print(f"📄 {len(pdfs)} PDF(s) encontrado(s) em {workspace.name}")
 

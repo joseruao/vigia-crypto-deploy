@@ -14,12 +14,20 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _ensure_env() -> None:
-    """Carrega backend/.env se existir (sem sobrepor variáveis já definidas)."""
+    """Carrega backend/.env se existir (sem sobrepor variáveis já definidas).
+
+    O Notepad/outros editores Windows gravam cp1252 (ex.: "jurídica") e o
+    dotenv lê UTF-8 — tolerância: se UTF-8 falhar, tenta cp1252.
+    """
     if load_dotenv is None:
         return
     env_file = _BACKEND_ROOT / ".env"
-    if env_file.exists():
+    if not env_file.exists():
+        return
+    try:
         load_dotenv(env_file, override=False)
+    except UnicodeDecodeError:
+        load_dotenv(env_file, override=False, encoding="cp1252")
 
 
 @dataclass(frozen=True)
@@ -32,6 +40,8 @@ class AIConfig:
     # Azure AI Document Intelligence (OCR de scans) — opcional
     docintel_endpoint: str = ""
     docintel_key: str = ""
+    # Engine de OCR para scans: auto | paddle (local, grátis) | docintel (Azure) | none
+    ocr_engine: str = "auto"
     mistral_api_key: str = ""
     mistral_model: str = "mistral-large-latest"
 
@@ -46,6 +56,7 @@ def load_ai_config() -> AIConfig:
         azure_openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21"),
         docintel_endpoint=os.getenv("AZURE_DOCINTEL_ENDPOINT", ""),
         docintel_key=os.getenv("AZURE_DOCINTEL_KEY", ""),
+        ocr_engine=os.getenv("AUDITOR_OCR_ENGINE", "auto").strip().lower(),
         mistral_api_key=os.getenv("MISTRAL_API_KEY", ""),
         mistral_model=os.getenv("MISTRAL_MODEL", "mistral-large-latest"),
     )

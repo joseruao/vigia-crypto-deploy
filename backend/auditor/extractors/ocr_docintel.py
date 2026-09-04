@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 import requests
 
-from ..config import AIConfig, load_ai_config
+from ..config import AIConfig
 
 # API v3.1 (estável). A v3.2 (2024-11-30) também existe; 2023-07-31 é a mais comprovada.
 DOCINTEL_API_VERSION = "2023-07-31"
@@ -21,12 +21,19 @@ LogCall = Callable[[dict[str, Any]], None]
 class NoOCRSilent:
     """Fallback offline: devolve texto vazio (nunca inventa)."""
 
+    engine_name = "none"
+
     def ocr_pdf(self, path: Path) -> str:
         return ""
 
 
 class DocumentIntelligenceOCR:
-    """OCR de PDFs escaneados via Azure AI Document Intelligence (região UE)."""
+    """OCR de PDFs escaneados via Azure AI Document Intelligence (região UE).
+
+    Seleção do engine (auto/paddle/docintel) em ocr_router.build_ocr_client().
+    """
+
+    engine_name = "docintel-prebuilt-layout"
 
     def __init__(self, config: AIConfig, log_call: LogCall | None = None) -> None:
         self.cfg = config
@@ -106,11 +113,3 @@ class DocumentIntelligenceOCR:
                     "error": f"{where} {detail[:150]}",
                 }
             )
-
-
-def build_ocr_client(config: AIConfig | None = None, log_call: LogCall | None = None) -> DocumentIntelligenceOCR | NoOCRSilent:
-    """Devolve cliente OCR se AZURE_DOCINTEL_* estiver configurado, senão fallback silencioso."""
-    cfg = config or load_ai_config()
-    if cfg.docintel_endpoint and cfg.docintel_key:
-        return DocumentIntelligenceOCR(cfg, log_call=log_call)
-    return NoOCRSilent()
