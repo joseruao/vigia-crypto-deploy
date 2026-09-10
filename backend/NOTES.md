@@ -1,6 +1,54 @@
 
 ---
 
+## ☁️ MIGRAÇÃO RAILWAY → AZURE (10 Set 2026) — o Railway morreu (trial expirado, 03:04 UTC)
+
+Tudo passou para **um único App Service Plan B1 em Italy North** (`plan-vigia-devil-italynorth`,
+~€11,5/mês dos créditos de estudante). Quatro apps, todas Running:
+
+| App | URL | Notas |
+|---|---|---|
+| `vigia-api` | https://vigia-api.azurewebsites.net | API + **crons dentro da app**, PYTHON\|3.13, alwaysOn |
+| `vigia-consulta` | https://vigia-consulta.azurewebsites.net | joseruao.com/consulta (rewrite no Vercel), `DATA_DIR=/home/data` |
+| `vigia-devil-mistral` | https://vigia-devil-mistral.azurewebsites.net | Mistral UE, alwaysOn |
+| `vigia-auditor-api` | https://vigia-auditor-api.azurewebsites.net | UI local em `C:\Users\joser\audit-ui` |
+
+### Deploy da API (receita)
+```bash
+python backend/scripts/build_azure_zip.py        # zip com barras `/`, sem .env
+az webapp deploy -g rg-vigia-auditor -n vigia-api \
+    --src-path "C:/Users/joser/Downloads/vigia_api_azure.zip" --type zip
+```
+Settings: `python backend/scripts/azure_sync_settings.py --app vigia-api -g rg-vigia-auditor --from-railway vigia-crypto -p spectacular-imagination -e production`
+(só nomes de variáveis são impressos). Site config: `backend/scripts/azure_site_config.py` (usa `az rest`).
+Startup command (o código é extraído para `/tmp/<id>`, daí o `find`):
+`D=$(find /tmp -maxdepth 3 -path "*/Api/main.py" | head -1) && cd "${D%/Api/main.py}" && gunicorn -w 1 -k uvicorn.workers.UvicornWorker Api.main:app --bind 0.0.0.0:8000 --timeout 600`
+
+### Crons deixaram de ser serviços
+`Api/services/scheduler.py` (APScheduler ligado no `lifespan`, só com `gunicorn -w 1`) lança cada
+worker num **subprocesso** — `worker/` e `dailyworker/` são pesados e não podem bloquear a API.
+06:00 holdings · 07:00 top100 · 08:00 arkham (UTC). Logs em `/home/LogFiles/cron_<nome>.log`.
+`GET /admin/cron-status` e `POST /admin/run-worker?name=…` (header `x-access-code`) — disparo manual.
+Desligar: App Setting `VIGIA_CRON_ENABLED=false`. ⚠️ `alwaysOn=true` é obrigatório senão não disparam.
+
+### Quirks do Azure (a dor desta sessão)
+- **Git Bash converte argumentos que começam por `/`** para `C:/Program Files/Git/...` → `MSYS_NO_PATHCONV=1`
+  (partiu `DATA_DIR=/home/data` e o `healthCheckPath`; a app escreveu dados no /tmp e perdeu-os num restart).
+- Chamar `az` **direto do bash** (PATH += `.../CLI2/wbin`) — o wrapper PowerShell come os `|`
+  (`--runtime "PYTHON|3.12"` falhava); ids ARM também precisam de `MSYS_NO_PATHCONV=1`.
+- `az webapp deploy` pode devolver **504 e o build continuar** em background (foi o caso do vigia-api,
+  5-8 min de pip) → confirmar com `az webapp log deployment list`.
+- **Kudu basic auth desativada** (401 no `/api/vfs`) → logs com `az webapp log download` (traz `/home/LogFiles`).
+- O `--set properties.serverFarmId=<plano>` via `az resource update` **move apps entre planos sem redeploy**.
+- `tesseract` não existe na imagem (bullseye EOL): OCR de imagem do football falha; o resto não usa.
+
+### Pendente
+`NEXT_PUBLIC_API_URL` no Vercel ainda aponta para o Railway → mudar para `https://vigia-api.azurewebsites.net`
++ redeploy. O `TELEGRAM_BOT_TOKEN` do top100 dá 401 (token inválido — ver log do cron).
+Railway fica parado como fallback (projetos `consulta` e `spectacular-imagination`).
+
+---
+
 ## 🧾 AI BUSINESS AUDITOR — pipeline local + Azure (16 Ago 2026)
 
 ### O que está feito e a funcionar
