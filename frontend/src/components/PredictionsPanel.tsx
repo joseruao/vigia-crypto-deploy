@@ -119,7 +119,7 @@ function shortDate(value?: string) {
 
 async function getPredictions(): Promise<Holding[]> {
   try {
-    let API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://vigia-crypto-1.onrender.com';
+    let API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://vigia-api.azurewebsites.net';
     if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       API_BASE = 'http://localhost:8000';
     }

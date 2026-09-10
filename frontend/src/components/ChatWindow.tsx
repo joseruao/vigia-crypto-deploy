@@ -50,7 +50,7 @@ export function ChatWindow() {
       return 'http://localhost:8000';
     }
     // Senão, usa env var ou produção
-    return process.env.NEXT_PUBLIC_API_URL?.trim() || 'https://vigia-crypto-1.onrender.com';
+    return process.env.NEXT_PUBLIC_API_URL?.trim() || 'https://vigia-api.azurewebsites.net';
   };
   
   const API_URL = getApiUrl();

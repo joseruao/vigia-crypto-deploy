@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://vigia-crypto-1.onrender.com';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://vigia-api.azurewebsites.net';
 
 export async function GET() {
   try {

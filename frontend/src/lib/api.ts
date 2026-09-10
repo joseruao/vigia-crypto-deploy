@@ -6,7 +6,7 @@ const getApiBase = () => {
     return 'http://localhost:8000';
   }
   // Senão, usa env var ou produção
-  return process.env.NEXT_PUBLIC_API_URL || 'https://vigia-crypto-1.onrender.com';
+  return process.env.NEXT_PUBLIC_API_URL || 'https://vigia-api.azurewebsites.net';
 };
 
 const API_BASE = getApiBase();
