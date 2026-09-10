@@ -10,7 +10,8 @@ const nextConfig = {
     return [
       {
         source: "/consulta/:path*",
-        destination: "https://consulta-production-354e.up.railway.app/:path*",
+        // Azure App Service (EU, italynorth) — o Railway ficou sem créditos a 2026-09-10
+        destination: "https://vigia-consulta.azurewebsites.net/:path*",
       },
     ];
   },

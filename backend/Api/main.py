@@ -7,7 +7,7 @@ import re
 import json
 from pathlib import Path
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware as StarletteCORSMiddleware
@@ -44,7 +44,16 @@ ALLOWED_ORIGINS = {
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("Vigia API a iniciar")
+    # Agendador dos workers (substitui os crons do Railway) — ver Api/services/scheduler.py
+    try:
+        from Api.services.scheduler import start_scheduler, stop_scheduler
+        start_scheduler()
+    except Exception as e:  # nunca impedir o arranque da API por causa do agendador
+        stop_scheduler = None
+        log.warning("Agendador de crons indisponivel: %s", e)
     yield
+    if stop_scheduler:
+        stop_scheduler()
     log.info("Vigia API a encerrar")
 
 
@@ -122,6 +131,35 @@ def health():
 @app.get("/__version")
 def version():
     return {"name": "vigia-backend", "version": "0.2.0"}
+
+
+# ---------------------------------------------------------------------------
+# Administração dos crons (substituem os serviços cron do Railway)
+# ---------------------------------------------------------------------------
+def _check_admin_code(request: Request) -> None:
+    """Gate simples por header — mesmo código do Devil's Advocate."""
+    expected = os.environ.get("DEVILS_ADVOCATE_ACCESS_CODE", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="código de acesso não configurado")
+    if request.headers.get("x-access-code", "") != expected:
+        raise HTTPException(status_code=401, detail="código de acesso inválido")
+
+
+@app.get("/admin/cron-status")
+def admin_cron_status(request: Request):
+    _check_admin_code(request)
+    from Api.services.scheduler import status
+    return status()
+
+
+@app.post("/admin/run-worker")
+def admin_run_worker(request: Request, name: str):
+    """Dispara um worker à mão (holdings | top100 | arkham) sem esperar pela hora."""
+    _check_admin_code(request)
+    from Api.services.scheduler import JOBS, run_worker
+    if name not in JOBS:
+        raise HTTPException(status_code=400, detail=f"worker desconhecido: {name} (use {', '.join(JOBS)})")
+    return run_worker(name)
 
 
 # ---------------------------------------------------------------------------

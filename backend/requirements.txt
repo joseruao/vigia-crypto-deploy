@@ -12,6 +12,10 @@ fastapi==0.115.0
 uvicorn==0.30.6
 starlette==0.38.6
 python-multipart>=0.0.9
+# gunicorn: servidor de produção no Azure App Service (o Railway corria uvicorn no Railpack)
+gunicorn>=23.0.0,<24
+# agendador dos workers dentro da API (substitui os serviços cron do Railway)
+APScheduler>=3.10,<4
 
 # --- Machine Learning ---
 scikit-learn==1.5.2
