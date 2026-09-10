@@ -1298,7 +1298,10 @@ def get_predictions():
 
     try:
         listed_tokens = _load_listed_tokens_map(log)
-        base_select = "id,exchange,token,chain,score,ts,listed_exchanges,analysis_text,ai_analysis,pair_url,value_usd,liquidity,volume_24h,token_address"
+        # NOTA: transacted_tokens NAO tem coluna `id` (o id existe em arkham_signals).
+        # Pedir `id` aqui fazia o Supabase devolver 42703 e a tabela de predictions
+        # do site ficava vazia (corrigido a 2026-09-10).
+        base_select = "exchange,token,chain,score,ts,listed_exchanges,analysis_text,ai_analysis,pair_url,value_usd,liquidity,volume_24h,token_address"
         # Busca holdings (que são as predictions de potencial listing)
         # Timeout reduzido para 8 segundos para evitar travamentos
         # Limite de 500 registos para evitar queries muito lentas
